@@ -1,0 +1,24 @@
+{
+  "name": "playwright-expert",
+  "version": "1.0.0",
+  "description": "repository for testing goals only",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "playwright-automation"
+  },
+  "author": "Arthur Henriques",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^22.20.3",
+    "typescript": "^7.0.2"
+  }
+}
