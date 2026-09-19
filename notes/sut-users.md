@@ -5,12 +5,18 @@ Recorded 2026-09-16. Source: `docker compose exec -T db psql -U vikunja -d vikun
 
 | id | username | created | role |
 |---|---|---|---|
-| 1 | `arthurhgian` | 2026-09-13 23:51:51 | **test user** — the account the Playwright suite logs in as |
+| 1 | `arthurhgian` | 2026-09-13 23:51:51 | **test user** — reserved for specs that authenticate; see status below |
 | 2 | `alcooltur` | 2026-09-15 18:06:56 | **SQL sandbox** — scratch account for poking the DB by hand |
 
 Each account's email is a personal address, so it stays out of this file — this repo is
 public. `id` and `username` are enough to tell the rows apart; run the query above if you
 need the addresses.
+
+**Status (2026-09-19):** no spec authenticates as anyone yet. Rung 1 landed as a
+failed-login spec (`tests/first.spec.ts`), which fills `nobody-qa-probe` and asserts
+Vikunja's rejection message — it depends on that username *not* existing, so the suite
+currently runs green against an empty database. The rule below governs the specs that
+log in from the rung where one first does.
 
 **Rule:** specs authenticate as id 1 only. Do hand-written SQL (updates, deletes,
 `select` experiments that might mutate) against id 2, so a botched statement can't
