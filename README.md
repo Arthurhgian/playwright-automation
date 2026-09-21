@@ -22,59 +22,37 @@ node -v && npm -v && docker --version
 
 ## 1. Start the system under test
 
-**The Vikunja compose file is not in this repository.** This repo contains the test suite only. Copy the block below into `vikunja-sut/docker-compose.yml` (any directory outside this repo works, the name is just the convention used here):
-
-```yaml
-services:
-  vikunja:
-    image: vikunja/vikunja:2.6.0
-    environment:
-      VIKUNJA_SERVICE_PUBLICURL: http://localhost:3456/
-      VIKUNJA_DATABASE_HOST: db
-      VIKUNJA_DATABASE_PASSWORD: local-throwaway
-      VIKUNJA_DATABASE_TYPE: postgres
-      VIKUNJA_DATABASE_USER: vikunja
-      VIKUNJA_DATABASE_DATABASE: vikunja
-      VIKUNJA_SERVICE_SECRET: REPLACE_ME
-    ports:
-      - 3456:3456
-    volumes:
-      - ./files:/app/vikunja/files
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
-  db:
-    image: postgres:18
-    environment:
-      POSTGRES_PASSWORD: local-throwaway
-      POSTGRES_USER: vikunja
-    volumes:
-      - ./db:/var/lib/postgresql
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h localhost -U $$POSTGRES_USER"]
-      interval: 2s
-      start_period: 30s
-```
-
-Generate your own `VIKUNJA_SERVICE_SECRET` (it signs session tokens — do not commit a real one to a public repo):
+The compose file is in this repository at `sut/docker-compose.yml` — you don't need to find Vikunja or write one yourself. From the repo root:
 
 ```bash
-openssl rand -hex 32
+docker compose -f sut/docker-compose.yml up -d
 ```
 
-Then bring it up and wait for it to answer:
+Then wait for it to answer. Poll, don't sleep: Postgres has a 30s `start_period` and Vikunja won't start until the database passes its healthcheck, so how long this takes varies.
 
 ```bash
-cd vikunja-sut
-docker compose up -d
-curl -s http://localhost:3456/api/v1/info | head -c 200
+for i in $(seq 45); do curl -sf http://localhost:3456/api/v1/info >/dev/null && echo READY && break; sleep 2; done
+curl -s http://localhost:3456/api/v1/info | head -c 120
 ```
 
-A JSON body with a `"version"` field means it is ready. Postgres has a 30s `start_period`, so the first boot takes longer than later ones; until the DB passes its healthcheck the API will not be up.
+`READY` plus a body containing `"version":"v2.6.0"` means you can run the suite. If `READY` never prints, run `docker compose -f sut/docker-compose.yml ps -a` — a container sitting in `Exited` or `Restarting` is the answer, and `docker compose -f sut/docker-compose.yml logs vikunja` will say why.
 
-**On versions:** the suite was developed against Vikunja **v2.6.0**, confirmed via `/api/v1/info`. The image tag above is pinned so you get a known build; if you pull an untagged `vikunja/vikunja` instead you get whatever is current, and the login page's accessible names are exactly what the locators depend on. If a locator fails on a fresh pull, check your version against v2.6.0 first.
+To wipe everything and start from an empty database:
+
+```bash
+docker compose -f sut/docker-compose.yml down -v
+```
+
+**Two things in that file look odd and are deliberate.** File storage points at `/tmp/vikunja-files` via `VIKUNJA_FILES_BASEPATH`, because Vikunja runs as uid 1000 and cannot write to `/app/vikunja`; the conventional bind-mounted `./files` only appears to work on macOS, where Docker Desktop maps host ownership permissively, and fails on Linux. And neither service sets a `restart:` policy, so a crash surfaces immediately as `Exited (1)` rather than hiding behind a restart loop that is indistinguishable from "still booting" to any readiness check.
+
+`VIKUNJA_SERVICE_SECRET` has a throwaway default so the stack runs with no setup. It signs session tokens, so for anything less disposable than a local test instance, override it:
+
+```bash
+VIKUNJA_SERVICE_SECRET=$(openssl rand -hex 32) docker compose -f sut/docker-compose.yml up -d
+```
+
+**On versions:** the suite was developed against Vikunja **v2.6.0**, confirmed via `/api/v1/info`, and the image is pinned to that tag in the compose file. The login page's accessible names are exactly what the locators depend on, so if a locator fails, check your version first.
+
 
 ## 2. Install the project
 
@@ -137,6 +115,7 @@ Later rungs add specs that authenticate as a real user. When they do, `notes/sut
 
 | Path | |
 |---|---|
+| `sut/` | the system under test — Vikunja + Postgres compose file, image pinned to v2.6.0 |
 | `tests/` | the suite — everything here is collected and run by `npm test` |
 | `notes/` | reasoning, hypotheses, SUT facts; **not** collected by Playwright (`testDir` is `./tests`) |
 | `notes/locator-comparison.ts` | five locator strategies ranked against the same element; kept as `.ts` so `tsc` catches API drift |
