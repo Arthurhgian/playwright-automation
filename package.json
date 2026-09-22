@@ -10,6 +10,9 @@
     "report": "playwright show-report",
     "typecheck": "tsc --noEmit"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "repository": {
     "type": "git",
     "url": "playwright-automation"
