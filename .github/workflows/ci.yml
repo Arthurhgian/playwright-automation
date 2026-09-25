@@ -36,7 +36,7 @@ jobs:
       # never answers, so a red run says why rather than just timing out.
       - name: Wait for the SUT to answer
         run: |
-          for i in $(seq 45); do
+          for i in $(seq 1); do
             if curl -sf http://localhost:3456/api/v1/info > /dev/null; then
               echo "READY after $((i * 2))s"
               curl -s http://localhost:3456/api/v1/info | head -c 120
