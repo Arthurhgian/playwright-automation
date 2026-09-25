@@ -36,17 +36,19 @@ jobs:
       # never answers, so a red run says why rather than just timing out.
       - name: Wait for the SUT to answer
         run: |
-          for i in $(seq 1); do
+          ATTEMPTS=45
+          INTERVAL=2
+          for i in $(seq $ATTEMPTS); do
             if curl -sf http://localhost:3456/api/v1/info > /dev/null; then
-              echo "READY after $((i * 2))s"
+              echo "READY after $((i * INTERVAL))s"
               curl -s http://localhost:3456/api/v1/info | head -c 120
               exit 0
             fi
-            sleep 2
+            sleep $INTERVAL
           done
-          echo "::error::SUT did not answer within 90s"
+          echo "::error::SUT did not answer within $((ATTEMPTS * INTERVAL))s"
           docker compose -f sut/docker-compose.yml ps -a
-          docker compose -f sut/docker-compose.yml logs
+          docker compose -f sut/docker-compose.yml logs --tail 20
           exit 1
 
       - run: npm test
